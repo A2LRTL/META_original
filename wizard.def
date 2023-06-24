@@ -1,0 +1,17 @@
+{
+  "name": "Wizard",
+  "size": 250,
+  "scale": 3,
+  "offset": [112, 107],
+  "animation_steps": [8, 8, 1, 8, 8, 3, 7],
+  "sprite_sheet": "assets/images/wizard/Sprites/wizard.png",
+  "move_left": 106, 
+  "move_right": 108,
+  "move_up": 105,
+  "attack_1": 113,
+  "attack_2": 101,
+  "combo_1": 122,
+  "combo_2": 120,
+  "combo_3": 99,
+  "sound": "assets/audio/magic.wav"
+}

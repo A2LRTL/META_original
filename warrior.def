@@ -1,0 +1,17 @@
+{
+  "name": "Warrior",
+  "size": 162,
+  "scale": 4,
+  "offset": [72, 56],
+  "animation_steps": [10, 8, 1, 7, 7, 3, 7],
+  "sprite_sheet": "assets/images/warrior/Sprites/warrior.png",
+  "move_left": 97,
+  "move_right": 100,
+  "move_up": 119,
+  "attack_1": 114,
+  "attack_2": 116,
+  "combo_1": 102,
+  "combo_2": 103,
+  "combo_3": 104,
+  "sound": "assets/audio/sword.wav"
+}
