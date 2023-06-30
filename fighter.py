@@ -47,12 +47,7 @@ class Fighter(pygame.sprite.Sprite):
     dy = 0
     self.running = False
     self.attack_type = 0
-    
-    
-
-
-
-        
+            
   def load_config(self, config_file):
     with open(config_file, "r") as f:
           self.config = json.load(f)
@@ -65,8 +60,7 @@ class Fighter(pygame.sprite.Sprite):
     self.combo_1 = self.config["combo_1"]
     self.combo_2 = self.config["combo_2"]
     self.combo_3 = self.config["combo_3"]
-    
-    
+      
   def reset(self):
     self.health = 100
     self.alive = True
@@ -92,7 +86,126 @@ class Fighter(pygame.sprite.Sprite):
       animation_list.append(temp_img_list)
     return animation_list
   
+  def calculate_distance(self, target):
+      # Calculate the distance between the AI and the target
+      return abs(self.rect.x - target.rect.x)
+  
+  def targets_direction(self, target):
+    # Calculate the direction to the target
+    return 1 if target.rect.x > self.rect.x else -1
+  
+  def approach_target(self, target):
+    SPEED = 10
+    dx = SPEED * self.targets_direction(target)
+    self.running = True
+    return dx
+  
+  def combat_behaviour(self, target):
+# Constant speed
+    SPEED = 10
+    GRAVITY = 2
 
+    # Distance thresholds
+    long_distance = 400
+    medium_distance = 150
+    close_distance = 50
+
+    # Health thresholds
+    high_health = 80
+    medium_health = 40
+
+    dx = 0
+    dy = 0
+    self.running = False
+    self.jump = False
+    self.attacking = False
+    self.defending = False
+    self.retreating = False
+    self.attack_type = 0  # default to ranged attack
+
+    # Get the distance to the target
+    distance = self.calculate_distance(target)
+
+    # Apply gravity
+    self.vel_y += GRAVITY
+    dy += self.vel_y
+
+    # Action decision-making based on distance to target and own health
+    if self.health > high_health:
+        if distance > long_distance:
+            self.action = 1  # move  
+            print("action 1")
+        elif medium_distance < distance <= long_distance:
+            self.attack_type = 1  # ranged attack
+            self.attacking = True
+            self.attack(target)
+        elif distance <= medium_distance:
+            self.attack_type = 1  # melee attack
+            self.attacking = True
+            self.attack(target)
+
+    elif medium_health < self.health <= high_health:
+        pass
+    elif self.health <= medium_health:
+        pass
+    
+        # Update player position
+    self.rect.x += dx
+    self.rect.y += dy
+
+  # Apply gravity
+    self.vel_y += GRAVITY
+    dy += self.vel_y
+    
+    if self.attack_cooldown > 0:
+        self.attack_cooldown -= 1
+
+    self.execute_action(target)
+
+  def execute_action(self, target):
+    SPEED = 10
+    GRAVITY = 2
+    dx = 0
+    dy = 0
+    self.running = False
+    self.attack_type = 0
+
+    if self.action == 1 :
+        dx = -SPEED
+        self.running = True  
+        print("AI moves left")
+    elif self.action == 1 :
+        dx = SPEED
+        self.running = True
+        print("AI moves right")
+    elif self.action == 2:
+        if not self.jump:  # Ensure the character is not already in a jump state
+            self.vel_y = -30  # needs to be negative because of the origin in the upper left
+            self.jump = True
+        print("AI jumps")
+    elif self.action == 3 :
+        self.attack(target)
+        self.attack_cooldown = 50 #beug : attack pas si mvt en x
+
+        print("AI attacks")
+
+
+    # Apply gravity
+    self.vel_y += GRAVITY
+    dy += self.vel_y
+
+    # Ensure player stays on screen
+
+    # Ensure players face each other
+    self.face_opponent(target)
+
+    # Apply attack cooldown (prevents switching attacks during an ongoing attack)
+    if self.attack_cooldown > 0:
+        self.attack_cooldown -= 1
+
+    # Update player position
+    self.rect.x += dx
+    self.rect.y += dy
 
   def move(self, screen_width, screen_height, target, round_over):
     # Initialize constants for speed, gravity, and character states
@@ -160,118 +273,6 @@ class Fighter(pygame.sprite.Sprite):
     # Update player position
     self.rect.x += dx
     self.rect.y += dy
-
-  def calculate_distance(self, target):
-      # Calculate the distance between the AI and the target
-      return abs(self.rect.x - target.rect.x)
-  
-  def targets_direction(self, target):
-    # Calculate the direction to the target
-    return 1 if target.rect.x > self.rect.x else -1
-  
-  def approach_target(self, target):
-    SPEED = 10
-    dx = SPEED * self.targets_direction(target)
-    self.running = True
-    return dx
-  
-  def combat_behaviour(self, target):
-# Constant speed
-    SPEED = 10
-    GRAVITY = 2
-
-    # Distance thresholds
-    long_distance = 400
-    medium_distance = 150
-    close_distance = 50
-
-    # Health thresholds
-    high_health = 80
-    medium_health = 40
-
-    dx = 0
-    dy = 0
-    self.running = False
-    self.jump = False
-    self.attacking = False
-    self.defending = False
-    self.retreating = False
-    self.attack_type = 0  # default to ranged attack
-
-    # Get the distance to the target
-    distance = self.calculate_distance(target)
-
-    # Apply gravity
-    self.vel_y += GRAVITY
-    dy += self.vel_y
-
-    # Action decision-making based on distance to target and own health
-    if self.health > high_health:
-        if distance > long_distance:
-            dx = self.approach_target(target)
-        elif medium_distance < distance <= long_distance:
-            self.attack_type = 1  # ranged attack
-            self.attacking = True
-            self.attack(target)
-        elif distance <= medium_distance:
-            self.attack_type = 1  # melee attack
-            self.attacking = True
-            self.attack(target)
-
-    elif medium_health < self.health <= high_health:
-        pass
-    elif self.health <= medium_health:
-        pass
-
-  # Apply gravity
-    self.vel_y += GRAVITY
-    dy += self.vel_y
-    
-    if self.attack_cooldown > 0:
-        self.attack_cooldown -= 1
-    # Update player position
-    self.rect.x += dx
-    self.rect.y += dy
-   
-    self.execute_action(target)
-
-
-
-  def execute_action(self, target):
-    SPEED = 10
-    dx = 0
-    dy = 0
-    self.running = False
-
-    if self.action == 1 :
-        dx = -SPEED
-        self.running = True  
-        print("AI moves left")
-    elif self.action == 1 :
-        dx = SPEED
-        self.running = True
-        print("AI moves right")
-    elif self.action == 2:
-        if not self.jump:  # Ensure the character is not already in a jump state
-            self.vel_y = -30  # needs to be negative because of the origin in the upper left
-            self.jump = True
-        print("AI jumps")
-    elif self.action == 3 :
-        self.attack(target)
-        self.attack_cooldown = 50 #beug : attack pas si mvt en x
-
-        print("AI attacks")
-
-    #elif action == 'retreat':
-     #   self.retreat(target)
-      #  print("AI retreats")
-    #elif action == 'defend':
-    #    self.defend(target)
-     #   print("AI defends")
-
-    self.rect.x += dx
-    self.rect.y += dy      
-
 
   def retreat(self, target):
     SPEED = 10
@@ -358,7 +359,6 @@ class Fighter(pygame.sprite.Sprite):
                 self.attack_type = 7
                 self.attack(target)          
                    
-  #handle animation updates  
   def update(self):
     GRAVITY = 2
     self.vel_y += GRAVITY
@@ -407,10 +407,6 @@ class Fighter(pygame.sprite.Sprite):
           self.attacking = False
           self.attack_cooldown = 20
 
-  #def get_attack_rect(self):
-      #attacking_rect = pygame.Rect(self.rect.centerx - (2 * self.rect.width * self.flip), self.rect.y, 2 * self.rect.width, self.rect.height)
-      #return attacking_rect
-    
   def attack(self, target):
     if self.attack_cooldown == 0:
             # execute attack
