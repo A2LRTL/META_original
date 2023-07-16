@@ -41,12 +41,13 @@ class Fighter(pygame.sprite.Sprite):
     self.combo_keys = []
     self.combo_timer = 0
     self.state = "Combat"
-    SPEED = 10
-    GRAVITY = 2
-    dx = 0
-    dy = 0
-    self.running = False
-    self.attack_type = 0
+    self.jump_cooldown = 0  
+    self.timer = 0
+    self.current_movement_timer = 0  # Initialize movement timer
+    self.current_action_timer = 0  # Initialize action timer
+    self.current_movement = self.idle_ai  # Initialize current movement
+    self.current_action = self.idle_ai 
+
             
   def load_config(self, config_file):
     with open(config_file, "r") as f:
@@ -94,164 +95,171 @@ class Fighter(pygame.sprite.Sprite):
     # Calculate the direction to the target
     return 1 if target.rect.x > self.rect.x else -1
   
-  def approach_target(self, target):
+  def approach(self, target):
     SPEED = 10
-    dx = SPEED * self.targets_direction(target)
     self.running = True
+    dx = SPEED * self.targets_direction(target)
     return dx
+  
+  def retreat(self, target):
+    SPEED = 10
+    self.running = True
+    dx = -SPEED * self.targets_direction(target)
+    return dx
+
+  def jump_ai(self, target):
+    if self.jump_cooldown == 0:
+      self.vel_y = -30
+      self.jump = True
+      self.jump_cooldown = 30
+      print("AI jumps")
+  
+  def attack_ai(self, target):
+     if self.attack_cooldown == 0 :
+      self.attacking = True
+      self.attack_type = random.randint(1, 2)
+      self.attack_cooldown = 30
+      self.attack_sound.play()
+      print("AI attacks")
+      self.state = "Combat"
+      
+      if self.player == 1:
+              offset_x = target.rect.x - self.rect.x - 190
+      else:
+        offset_x = target.rect.x - self.rect.x + 190
+      
+      offset_y = target.rect.y - self.rect.y
+      print(f"Offset_x: {offset_x}, Offset_y: {offset_y}")  # Add this line
+      print(f"Self mask: {self.mask}")  # Add this line
+      print(f"Target mask: {target.mask}")  # Add this line
+
+      if self.mask.overlap(target.mask, (offset_x, offset_y)):
+              target.health -= 10
+              print("Fighter health:", target.health)
+              target.hit = True
+    
+  def defend(self, target):
+    self.vel_y = -3
+    self.jump = True  # makes the character jump to simulate a defense posture
+    print("AI defends")
+    self.state = "Combat"
+
+  def idle_ai(self, target):
+    self.running = False
+    self.jump = False
+    print ("AI idle")
+    dx = 0
+    return dx 
+
   
   def combat_behaviour(self, target):
 # Constant speed
-    SPEED = 10
     GRAVITY = 2
-
     # Distance thresholds
     long_distance = 400
     medium_distance = 150
     close_distance = 50
-
     # Health thresholds
-    high_health = 80
-    medium_health = 40
-
+    high_health = 6 #to change again
+    medium_health = 5
     dx = 0
     dy = 0
-    self.running = False
-    self.jump = False
-    self.attacking = False
-    self.defending = False
-    self.retreating = False
-    self.attack_type = 0  # default to ranged attack
-
     # Get the distance to the target
     distance = self.calculate_distance(target)
-
     # Apply gravity
     self.vel_y += GRAVITY
     dy += self.vel_y
 
     # Action decision-making based on distance to target and own health
     if self.health > high_health:
-        if distance > long_distance:
-            self.action = 1  # move  
-            print("action 1")
-        elif medium_distance < distance <= long_distance:
-            self.attack_type = 1  # ranged attack
-            self.attacking = True
-            self.attack(target)
-        elif distance <= medium_distance:
-            self.attack_type = 1  # melee attack
-            self.attacking = True
-            self.attack(target)
+        #1.1
+          if distance > long_distance:
+              movements = [self.approach, self.retreat, self.idle_ai]
+              weights = [70, 10, 20]
+              actions = [self.idle_ai, self.jump_ai, self.attack_ai]
+              action_weights = [80, 20, 5]
+
+          #1.2  
+          elif medium_distance < distance <= long_distance:
+              movements = [self.approach, self.retreat, self.idle_ai]
+              weights = [50, 30, 20]
+              actions = [self.idle_ai, self.jump_ai, self.attack_ai]
+              action_weights = [50, 25, 25]
+
+          #1.3    
+          elif medium_distance >= distance > close_distance:
+              movements = [self.approach, self.retreat, self.idle_ai]
+              weights = [10, 30, 20]
+              actions = [self.idle_ai, self.jump_ai, self.attack_ai]
+              action_weights = [10, 25, 50]
+
+          #1.4
+          elif distance <= close_distance:
+              movements = [self.approach, self.retreat, self.idle_ai]
+              weights = [10, 30, 20]
+              actions = [self.idle_ai, self.jump_ai, self.attack_ai]
+              action_weights = [10, 25, 50]
+
+          # Update current movement
+          if self.current_movement_timer <= 0:
+              self.current_movement = random.choices(movements, weights, k=1)[0]
+              self.current_movement_timer = random.randint(20, 80)  # Set the timer for the movement
+          
+          # Update current action
+          if self.current_action_timer <= 0:
+              self.current_action = random.choices(actions, action_weights, k=1)[0]  # Select an action based on weights
+              self.current_action_timer = random.randint(20, 40)  # Set the timer for the action
+
+          dx = self.current_movement(target)
+          self.current_action(target)
+
+
+
+            
 
     elif medium_health < self.health <= high_health:
         pass
     elif self.health <= medium_health:
         pass
     
-        # Update player position
+    print(dx)    # Update player position
     self.rect.x += dx
     self.rect.y += dy
 
-  # Apply gravity
-    self.vel_y += GRAVITY
-    dy += self.vel_y
     
     if self.attack_cooldown > 0:
         self.attack_cooldown -= 1
+    if self.jump_cooldown > 0:
+        self.jump_cooldown -= 1
 
-    self.execute_action(target)
-
-  def execute_action(self, target):
-    SPEED = 10
-    GRAVITY = 2
-    dx = 0
-    dy = 0
-    self.running = False
-    self.attack_type = 0
-
-    if self.action == 1 :
-        dx = -SPEED
-        self.running = True  
-        print("AI moves left")
-    elif self.action == 1 :
-        dx = SPEED
-        self.running = True
-        print("AI moves right")
-    elif self.action == 2:
-        if not self.jump:  # Ensure the character is not already in a jump state
-            self.vel_y = -30  # needs to be negative because of the origin in the upper left
-            self.jump = True
-        print("AI jumps")
-    elif self.action == 3 :
-        self.attack(target)
-        self.attack_cooldown = 50 #beug : attack pas si mvt en x
-
-        print("AI attacks")
-
-
-    # Apply gravity
-    self.vel_y += GRAVITY
-    dy += self.vel_y
-
-    # Ensure player stays on screen
-
-    # Ensure players face each other
-    self.face_opponent(target)
-
-    # Apply attack cooldown (prevents switching attacks during an ongoing attack)
-    if self.attack_cooldown > 0:
-        self.attack_cooldown -= 1
-
-    # Update player position
-    self.rect.x += dx
-    self.rect.y += dy
-
+    self.current_movement_timer -= 1
+    self.current_action_timer -= 1
+  
   def move(self, screen_width, screen_height, target, round_over):
     # Initialize constants for speed, gravity, and character states
     SPEED = 10
     GRAVITY = 2
     dx = 0
     dy = 0
-    self.running = False
-    self.attack_type = 0
+
 
     # Get the current state of keyboard keys
     key = pygame.key.get_pressed()
 
     # Check if the character is alive and the round is not over
     if self.alive and not round_over:
-        # Player controls
-        if self.player == 1: 
-          player_keys = self.config
-          
-          # Movement
-          if key[self.move_left]:
-              print("moveleft")
-              dx = -SPEED
-              self.running = True
-          if key[self.move_right]:
-              print("moveright")
-              dx = SPEED
-              self.running = True
-          if key[self.move_up] and not self.jump:
-            self.vel_y = -30  # needs to be negative because of the origin in the upper left
-            self.jump = True
+      
+        if self.state == "Combat":
+            self.combat_behaviour(target)
+        elif self.state == "Defense":
+            self.defend(target)
+        elif self.state == "Retreat":
+            self.retreat(target)
+        else: # AI starts in Combat mode
+            self.state = "Combat"
+  
+
         
-
-
-        elif self.player == 2:  # Added this elif block
-          if self.state == "Combat":
-              self.combat_behaviour(target)
-          elif self.state == "Defense":
-              self.defend(target)
-          elif self.state == "Retreat":
-              self.retreat(target)
-          else: # AI starts in Combat mode
-              self.state = "Combat"
-    
-
-          
 
         # Handle attacks and combos
         self.handle_attacks_and_combos(target, key)
@@ -273,20 +281,6 @@ class Fighter(pygame.sprite.Sprite):
     # Update player position
     self.rect.x += dx
     self.rect.y += dy
-
-  def retreat(self, target):
-    SPEED = 10
-    dx = 0
-    dx = SPEED  # Move right
-    self.rect.x += dx
-    self.running = True
-    print("AI retreats")
-    
-  def defend(self, target):
-    self.vel_y = -3
-    self.jump = True  # makes the character jump to simulate a defense posture
-    print("AI defends")
-    self.state = "Combat"
 
   def ensure_on_screen(self, dx, dy, screen_width, screen_height):
       # Keep the player on screen and adjust dx, dy accordingly
@@ -407,27 +401,6 @@ class Fighter(pygame.sprite.Sprite):
           self.attacking = False
           self.attack_cooldown = 20
 
-  def attack(self, target):
-    if self.attack_cooldown == 0:
-            # execute attack
-            self.attacking = True
-            self.attack_sound.play()
-            
-            # Calculate the offset between the two masks
-            if self.player == 1:
-              offset_x = target.rect.x - self.rect.x - 190
-            else:
-              offset_x = target.rect.x - self.rect.x + 190
-            offset_y = target.rect.y - self.rect.y
-            print(f"Offset_x: {offset_x}, Offset_y: {offset_y}")  # Add this line
-            print(f"Self mask: {self.mask}")  # Add this line
-            print(f"Target mask: {target.mask}")  # Add this line
-
-            if self.mask.overlap(target.mask, (offset_x, offset_y)):
-                target.health -= 10
-                print("Fighter health:", target.health)
-                target.hit = True
-                            
   def update_action(self, new_action):
     #check if the new action is different to the previous one
     if new_action != self.action:
