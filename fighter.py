@@ -13,6 +13,7 @@ class AIBehaviour:
         self.current_movement = self.idle_ai
         self.current_action = self.idle_ai
 
+
     def calculate_distance(self, target):
       # Calculate the distance between the AI and the target
         return abs(self.fighter.rect.x - target.rect.x)
@@ -34,46 +35,56 @@ class AIBehaviour:
       return dx
 
     def jump_ai(self, target):
-      if self.fighter.jump_cooldown == 0:
+      if self.fighter.jump_cooldown_1 == 0:
         self.fighter.vel_y = -30
         self.fighter.jump = True
-        self.fighter.jump_cooldown = 30
-        print("AI jumps")
+        self.fighter.jump_cooldown_1 = 30
+       #print("AI 1 jumps")
+      if self.fighter.jump_cooldown_2 == 0:
+        self.fighter.vel_y = -30
+        self.fighter.jump = True
+        self.fighter.jump_cooldown_2 = 30
+        #print("AI 2 jumps")
     
     def attack_ai(self, target):
-      if self.fighter.attack_cooldown == 0 :
+      if self.fighter.attack_cooldown_1 == 0 :
         self.fighter.attacking = True
         self.fighter.attack_type = random.randint(1, 2)
-        self.fighter.attack_cooldown = 30
+        self.fighter.attack_cooldown_1 = 30
         #self.attack_sound.play()
-        print("AI attacks")
+        print("AI 1 attacks")
+        self.fighter.state = "Combat"
+      if self.fighter.attack_cooldown_2 == 0 :
+        self.fighter.attacking = True
+        self.fighter.attack_type = random.randint(1, 2)
+        self.fighter.attack_cooldown_2 = 30
+        #self.attack_sound.play()
+        print("AI 2 attacks")
         self.fighter.state = "Combat"
         
-        if self.fighter == 1:
-                offset_x = target.rect.x - self.fighter.rect.x - 190
-        else:
-          offset_x = target.rect.x - self.fighter.rect.x + 190
-        
-        offset_y = target.rect.y - self.fighter.rect.y
-        print(f"Offset_x: {offset_x}, Offset_y: {offset_y}")  # Add this line
-        print(f"Self mask: {self.fighter.mask}")  # Add this line
-        print(f"Target mask: {target.mask}")  # Add this line
+      if self.fighter.fighter_id == 1:
+        offset_x = target.rect.x - self.fighter.rect.x + 190
+      elif self.fighter.fighter_id == 2:
+        offset_x = target.rect.x - self.fighter.rect.x - 190
+      
 
-        if self.fighter.mask.overlap(target.mask, (offset_x, offset_y)):
+      offset_y = target.rect.y - self.fighter.rect.y
+
+      if self.fighter.mask.overlap(target.mask, (offset_x, offset_y)):
                 target.health -= 10
-                print("Fighter health:", target.health)
+                print("Fighter health:", target.health, "Fighter hit:", target.fighter_id)
                 target.hit = True
       
     def defend(self, target):
       self.fighter.vel_y = -3
       self.fighter.jump = True  # makes the character jump to simulate a defense posture
-      print("AI defends")
+      #print("AI defends")
       self.fighter.state = "Combat"
 
     def idle_ai(self, target):
       self.fighter.running = False
       self.fighter.jump = False
-      print ("AI idle")
+      #print (f"AI {self.fighter.player} idles")
       dx = 0
       return dx 
 
@@ -99,7 +110,7 @@ class AIBehaviour:
 
       # Action decision-making based on distance to target and own health
       if self.fighter.health > high_health:
-
+            
 
           #1.1
             if distance > long_distance:
@@ -150,16 +161,21 @@ class AIBehaviour:
           pass
       elif self.fighter.health <= medium_health:
           pass
-      
-      print(dx)    # Update player position
+         # Update player position
       self.fighter.rect.x += dx
       self.fighter.rect.y += dy
 
       
-      if self.fighter.attack_cooldown > 0:
-          self.fighter.attack_cooldown -= 1
-      if self.fighter.jump_cooldown > 0:
-          self.fighter.jump_cooldown -= 1
+      if self.fighter.attack_cooldown_1 > 0:
+          self.fighter.attack_cooldown_1 -= 1
+      if self.fighter.jump_cooldown_1 > 0:
+          self.fighter.jump_cooldown_1 -= 1
+
+      if self.fighter.attack_cooldown_2 > 0:
+          self.fighter.attack_cooldown_2 -= 1
+      if self.fighter.jump_cooldown_2 > 0:
+          self.fighter.jump_cooldown_2 -= 1
+
 
       self.current_movement_timer -= 1
       self.current_action_timer -= 1
@@ -178,6 +194,7 @@ class Fighter(pygame.sprite.Sprite):
     sound = pygame.mixer.Sound(fighter_def['sound'])
     super().__init__()
     self.player = player
+    self.fighter_id=player
     self.size = fighter_def['size']
     self.image_scale = fighter_def['scale']
     self.offset = fighter_def['offset']
@@ -193,7 +210,10 @@ class Fighter(pygame.sprite.Sprite):
     self.jump = False
     self.attacking = False
     self.attack_type = 0
-    self.attack_cooldown = 0
+    self.attack_cooldown_1 = 0
+    self.attack_cooldown_2 = 0
+    self.jump_cooldown_1 = 0
+    self.jump_cooldown_2 = 0
     self.attack_sound = sound
     self.hit = False
     self.health = 100
@@ -203,7 +223,6 @@ class Fighter(pygame.sprite.Sprite):
     self.combo_keys = []
     self.combo_timer = 0
     self.state = "Combat"
-    self.jump_cooldown = 0  
     self.timer = 0
     self.current_movement_timer = 0  # Initialize movement timer
     self.current_action_timer = 0  # Initialize action timer
@@ -229,7 +248,10 @@ class Fighter(pygame.sprite.Sprite):
     self.alive = True
     self.attacking = False
     self.attack_type = 0
-    self.attack_cooldown = 0
+    self.attack_cooldown_1 = 0
+    self.attack_cooldown_2 = 0
+    self.jump_cooldown_1 = 0
+    self.jump_cooldown_2 = 0
     self.jump = False
     self.running = False
     self.hit = False
@@ -277,9 +299,6 @@ class Fighter(pygame.sprite.Sprite):
 
         
 
-        # Handle attacks and combos
-        self.handle_attacks_and_combos(target, key)
-
     # Apply gravity
     self.vel_y += GRAVITY
     dy += self.vel_y
@@ -291,8 +310,13 @@ class Fighter(pygame.sprite.Sprite):
     self.face_opponent(target)
 
     # Apply attack cooldown (prevents switching attacks during an ongoing attack)
-    if self.attack_cooldown > 0:
-        self.attack_cooldown -= 1
+    if self.attack_cooldown_1 > 0:
+        self.attack_cooldown_1 -= 1
+    if self.attack_cooldown_2 > 0:
+        self.attack_cooldown_2 -= 1
+
+
+
 
     # Update player position
     self.rect.x += dx
@@ -321,54 +345,7 @@ class Fighter(pygame.sprite.Sprite):
           self.flip = False
       else:
           self.flip = True
-
-  def handle_attacks_and_combos(self, target, key):
-    # Attack
-    if (key[self.attack_1] or key[self.attack_2]) and not self.attacking:
-        self.attack(target)
-        if key[self.attack_1]:
-            self.attack_type = 1
-        if key[self.attack_2]:
-            self.attack_type = 2
-
-
-
-    # Combo attacks
-    if (key[self.combo_1] or key[self.combo_2]) or key[self.combo_3]:
-
-        # Add the keypress and its timestamp to the combo_keys list
-        self.combo_keys.append((pygame.key.name(key.index(1)), time.time()))
-        # Update the combo timer
-        self.combo_timer = time.time()
-
-        # 2-key combos
-        if len(self.combo_keys) >= 2 and not self.attacking:
-            key_sequence1 = ['r', 'f']
-            key_sequence2 = ['t', 'g']
-            pressed_keys = [k[0] for k in self.combo_keys[-2:]]
-            if pressed_keys == key_sequence1:
-                self.attack_type = 3
-                self.attack(target)
-            elif pressed_keys == key_sequence2:
-                self.attack_type = 4
-                self.attack(target)
-
-        # 3-key combos
-        if len(self.combo_keys) >= 3 and not self.attacking:
-            key_sequence1 = ['r', 'f', 'h']
-            key_sequence2 = ['t', 'g', 'h']
-            key_sequence3 = ['r', 't', 'f']
-            pressed_keys = [k[0] for k in self.combo_keys[-3:]]
-            if pressed_keys == key_sequence1:
-                self.attack_type = 5
-                self.attack(target)
-            elif pressed_keys == key_sequence2:
-                self.attack_type = 6
-                self.attack(target)
-            elif pressed_keys == key_sequence3:
-                self.attack_type = 7
-                self.attack(target)          
-                   
+                
   def update(self):
     GRAVITY = 2
     self.vel_y += GRAVITY
@@ -407,15 +384,27 @@ class Fighter(pygame.sprite.Sprite):
       else:
         self.frame_index = 0
         #check if an attack was executed
-        if self.action == 3 or self.action == 4:
-          self.attacking = False
-          self.attack_cooldown = 20
-        #check if damage was taken
-        if self.action == 5:
-          self.hit = False
-          #if the player was in the middle of an attack, then the attack is stopped
-          self.attacking = False
-          self.attack_cooldown = 20
+        if self.player == 1:
+          if self.action == 3 or self.action == 4:
+            self.attacking = False
+            self.attack_cooldown_1 = 20
+          #check if damage was taken
+          if self.action == 5:
+            self.hit = False
+            #if the player was in the middle of an attack, then the attack is stopped
+            self.attacking = False
+            self.attack_cooldown_1 = 2
+        if self.player == 2:
+          if self.action == 3 or self.action == 4:
+            self.attacking = False
+            self.attack_cooldown_2 = 20
+          #check if damage was taken
+          if self.action == 5:
+            self.hit = False
+            #if the player was in the middle of an attack, then the attack is stopped
+            self.attacking = False
+            self.attack_cooldown_2 = 2
+
 
   def update_action(self, new_action):
     #check if the new action is different to the previous one
@@ -429,5 +418,3 @@ class Fighter(pygame.sprite.Sprite):
     img = pygame.transform.flip(self.image, self.flip, False)
     surface.blit(img, (self.rect.x  - (self.offset[0] * self.image_scale), self.rect.y - (self.offset[1] * self.image_scale)))
 
-
-# ... (the imports and any other initial code)

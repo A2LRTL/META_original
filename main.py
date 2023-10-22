@@ -1,4 +1,5 @@
 import pygame
+import requests
 from pygame import mixer
 from fighter import *
 from game_config import *
@@ -51,6 +52,27 @@ fighter_2 = Fighter(2, 700, 310, True, 'wizard.def')
 all_fighters = CustomSpriteGroup()
 all_fighters.add(fighter_1, fighter_2)
 
+
+def send_score_to_server(player, score):
+    # Define the API endpoint
+    url = '<https://gameapi.com/savescore>'
+
+    # Define the data payload. This may vary depending on the API's requirements.
+    data = {
+        'player': player,
+        'score': score
+    }
+
+    # Send a POST request with the data
+    response = requests.post(url, json=data)
+
+    # Optional: Check if the request was successful
+    if response.status_code == 200:
+        print("Score sent successfully!")
+    else:
+        print("Failed to send score. Response:", response.text)
+
+
 # Game loop
 last_count_update = pygame.time.get_ticks()
 run = True
@@ -64,10 +86,19 @@ time_left = countdown_time
 elapsed_time = 0
 
 while run:
-    if round > 3:
-            run = False
-            break
+   # if round > 3 or score[0] >= 2 or score[1] >= 2:
+    if round > 60:
+        #Identify which player won
+        winning_player = 1 if score[0] >= 5 else 2
+
+        # Send the score to the server
+        #send_score_to_server(winning_player, score[winning_player-1])
+
+        pygame.time.delay(5000)
+        run = False
+        break
     clock.tick(FPS)
+
     # Draw background
     draw_bg(screen, bg_image)
     
@@ -78,8 +109,8 @@ while run:
     # Show player stats
     draw_health_bar(screen,1, fighter_1.health, 20, 20)
     draw_health_bar(screen,2, fighter_2.health, 580, 20)
-    draw_text(screen, str(score[0]), score_font, RED, 400+5, 80-2)
-    draw_text(screen, str(score[1]), score_font, RED, 580-40, 80-2)
+    draw_text(screen, str(score[0]), score_font, RED, 420, 110)
+    draw_text(screen, str(score[1]), score_font, RED, 590, 110)
 
     # Update fighters
     

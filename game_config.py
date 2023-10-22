@@ -36,9 +36,11 @@ ROUND_OVER_COOLDOWN = 2000
 FIGHTERS_INITIAL_POSITION=[200, 310, 720, 310]
 
 # Helper functions
-def draw_text(screen, text, font, text_col, x, y):
-    img = font.render(text, True, text_col)
-    screen.blit(img, (x, y))
+def draw_text(screen, text, font, color, x, y):
+    text_surface = font.render(text, True, color)
+    text_rect = text_surface.get_rect(center=(x, y))
+    screen.blit(text_surface, text_rect.topleft)
+
 
 def draw_bg(screen, bg_image):
     scaled_bg = pygame.transform.scale(bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -112,6 +114,7 @@ def process_round(screen, draw_round_data, round_font, count_font, victory_font,
     time_left = countdown_time - elapsed_time
 
     if intro_count <= 0:
+       
         if not round_over:
             # Move fighters
             fighter1.move(SCREEN_WIDTH, SCREEN_HEIGHT, fighter2, round_over)
@@ -126,10 +129,17 @@ def process_round(screen, draw_round_data, round_font, count_font, victory_font,
                     score[1] += 1
                 elif not fighter2.alive:
                     score[0] += 1
+                
+                if score[0] >= 2:
+                    draw_text(screen, "Fighter 1 Wins!", victory_font, RED, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3)
+                    # Here you can add logic to terminate the game or transition to another screen
 
-                draw_text(screen, "VICTORY", victory_font, RED, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3)
+                elif score[1] >= 2:
+                    draw_text(screen, "Fighter 2 Wins!", victory_font, RED, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3)
+                    # Here you can add logic to terminate the game or transition to another screen
+
                 round_over = True
-                pygame.time.delay(1000)
+                
 
             if counter > 100:
                 # Reinitialize the fighters' positions and health
