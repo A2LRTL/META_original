@@ -5,7 +5,169 @@ import time
 import random  
 
 
+class AIBehaviour:
+    def __init__(self, fighter):
+        self.fighter = fighter
+        self.current_movement_timer = 0
+        self.current_action_timer = 0
+        self.current_movement = self.idle_ai
+        self.current_action = self.idle_ai
+
+    def calculate_distance(self, target):
+      # Calculate the distance between the AI and the target
+        return abs(self.fighter.rect.x - target.rect.x)
+  
+    def targets_direction(self, target):
+      # Calculate the direction to the target
+      return 1 if target.rect.x > self.fighter.rect.x else -1
+    
+    def approach(self, target):
+      SPEED = 10
+      self.fighter.running = True
+      dx = SPEED * self.targets_direction(target)
+      return dx
+    
+    def retreat(self, target):
+      SPEED = 10
+      self.fighter.running = True
+      dx = -SPEED * self.targets_direction(target)
+      return dx
+
+    def jump_ai(self, target):
+      if self.fighter.jump_cooldown == 0:
+        self.fighter.vel_y = -30
+        self.fighter.jump = True
+        self.fighter.jump_cooldown = 30
+        print("AI jumps")
+    
+    def attack_ai(self, target):
+      if self.fighter.attack_cooldown == 0 :
+        self.fighter.attacking = True
+        self.fighter.attack_type = random.randint(1, 2)
+        self.fighter.attack_cooldown = 30
+        #self.attack_sound.play()
+        print("AI attacks")
+        self.fighter.state = "Combat"
+        
+        if self.fighter == 1:
+                offset_x = target.rect.x - self.fighter.rect.x - 190
+        else:
+          offset_x = target.rect.x - self.fighter.rect.x + 190
+        
+        offset_y = target.rect.y - self.fighter.rect.y
+        print(f"Offset_x: {offset_x}, Offset_y: {offset_y}")  # Add this line
+        print(f"Self mask: {self.fighter.mask}")  # Add this line
+        print(f"Target mask: {target.mask}")  # Add this line
+
+        if self.fighter.mask.overlap(target.mask, (offset_x, offset_y)):
+                target.health -= 10
+                print("Fighter health:", target.health)
+                target.hit = True
+      
+    def defend(self, target):
+      self.fighter.vel_y = -3
+      self.fighter.jump = True  # makes the character jump to simulate a defense posture
+      print("AI defends")
+      self.fighter.state = "Combat"
+
+    def idle_ai(self, target):
+      self.fighter.running = False
+      self.fighter.jump = False
+      print ("AI idle")
+      dx = 0
+      return dx 
+
+    
+    def combat_behaviour(self, target):
+  # Constant speed
+      GRAVITY = 2
+      # Distance thresholds
+      long_distance = 400
+      medium_distance = 150
+      close_distance = 50
+      superimposed_distance = 5
+      # Health thresholds
+      high_health = 6 #to change again
+      medium_health = 5
+      dx = 0
+      dy = 0
+      # Get the distance to the target
+      distance = self.calculate_distance(target)
+      # Apply gravity
+      self.fighter.vel_y += GRAVITY
+      dy += self.fighter.vel_y
+
+      # Action decision-making based on distance to target and own health
+      if self.fighter.health > high_health:
+
+
+          #1.1
+            if distance > long_distance:
+                movements = [self.approach, self.retreat, self.idle_ai]
+                weights = [70, 10, 20]
+                actions = [self.idle_ai, self.jump_ai, self.attack_ai]
+                action_weights = [80, 20, 5]
+
+            #1.2  
+            elif medium_distance < distance <= long_distance:
+                movements = [self.approach, self.retreat, self.idle_ai]
+                weights = [50, 30, 20]
+                actions = [self.idle_ai, self.jump_ai, self.attack_ai]
+                action_weights = [50, 25, 25]
+
+            #1.3    
+            elif medium_distance >= distance > close_distance:
+                movements = [self.approach, self.retreat, self.idle_ai]
+                weights = [10, 30, 20]
+                actions = [self.idle_ai, self.jump_ai, self.attack_ai]
+                action_weights = [10, 25, 50]
+
+            #1.4
+            elif distance <= close_distance:
+                movements = [self.approach, self.retreat, self.idle_ai]
+                weights = [10, 30, 20]
+                actions = [self.idle_ai, self.jump_ai, self.attack_ai]
+                action_weights = [10, 25, 50]
+
+            # Update current movement
+            if self.current_movement_timer <= 0:
+                self.current_movement = random.choices(movements, weights, k=1)[0]
+                self.current_movement_timer = random.randint(20, 80)  # Set the timer for the movement
+            
+            # Update current action
+            if self.current_action_timer <= 0:
+                self.current_action = random.choices(actions, action_weights, k=1)[0]  # Select an action based on weights
+                self.current_action_timer = random.randint(20, 40)  # Set the timer for the action
+
+            dx = self.current_movement(target)
+            self.current_action(target)
+
+
+
+              
+
+      elif medium_health < self.fighter.health <= high_health:
+          pass
+      elif self.fighter.health <= medium_health:
+          pass
+      
+      print(dx)    # Update player position
+      self.fighter.rect.x += dx
+      self.fighter.rect.y += dy
+
+      
+      if self.fighter.attack_cooldown > 0:
+          self.fighter.attack_cooldown -= 1
+      if self.fighter.jump_cooldown > 0:
+          self.fighter.jump_cooldown -= 1
+
+      self.current_movement_timer -= 1
+      self.current_action_timer -= 1
+
+
+
 class Fighter(pygame.sprite.Sprite):
+
   def __init__(self, player, x, y, flip, fighter_def_file):
     with open(fighter_def_file, 'r') as f:
             fighter_def = json.load(f)
@@ -45,8 +207,8 @@ class Fighter(pygame.sprite.Sprite):
     self.timer = 0
     self.current_movement_timer = 0  # Initialize movement timer
     self.current_action_timer = 0  # Initialize action timer
-    self.current_movement = self.idle_ai  # Initialize current movement
-    self.current_action = self.idle_ai 
+
+    self.ai_behaviour = AIBehaviour(self)
 
             
   def load_config(self, config_file):
@@ -87,153 +249,7 @@ class Fighter(pygame.sprite.Sprite):
       animation_list.append(temp_img_list)
     return animation_list
   
-  def calculate_distance(self, target):
-      # Calculate the distance between the AI and the target
-      return abs(self.rect.x - target.rect.x)
-  
-  def targets_direction(self, target):
-    # Calculate the direction to the target
-    return 1 if target.rect.x > self.rect.x else -1
-  
-  def approach(self, target):
-    SPEED = 10
-    self.running = True
-    dx = SPEED * self.targets_direction(target)
-    return dx
-  
-  def retreat(self, target):
-    SPEED = 10
-    self.running = True
-    dx = -SPEED * self.targets_direction(target)
-    return dx
 
-  def jump_ai(self, target):
-    if self.jump_cooldown == 0:
-      self.vel_y = -30
-      self.jump = True
-      self.jump_cooldown = 30
-      print("AI jumps")
-  
-  def attack_ai(self, target):
-     if self.attack_cooldown == 0 :
-      self.attacking = True
-      self.attack_type = random.randint(1, 2)
-      self.attack_cooldown = 30
-      self.attack_sound.play()
-      print("AI attacks")
-      self.state = "Combat"
-      
-      if self.player == 1:
-              offset_x = target.rect.x - self.rect.x - 190
-      else:
-        offset_x = target.rect.x - self.rect.x + 190
-      
-      offset_y = target.rect.y - self.rect.y
-      print(f"Offset_x: {offset_x}, Offset_y: {offset_y}")  # Add this line
-      print(f"Self mask: {self.mask}")  # Add this line
-      print(f"Target mask: {target.mask}")  # Add this line
-
-      if self.mask.overlap(target.mask, (offset_x, offset_y)):
-              target.health -= 10
-              print("Fighter health:", target.health)
-              target.hit = True
-    
-  def defend(self, target):
-    self.vel_y = -3
-    self.jump = True  # makes the character jump to simulate a defense posture
-    print("AI defends")
-    self.state = "Combat"
-
-  def idle_ai(self, target):
-    self.running = False
-    self.jump = False
-    print ("AI idle")
-    dx = 0
-    return dx 
-
-  
-  def combat_behaviour(self, target):
-# Constant speed
-    GRAVITY = 2
-    # Distance thresholds
-    long_distance = 400
-    medium_distance = 150
-    close_distance = 50
-    # Health thresholds
-    high_health = 6 #to change again
-    medium_health = 5
-    dx = 0
-    dy = 0
-    # Get the distance to the target
-    distance = self.calculate_distance(target)
-    # Apply gravity
-    self.vel_y += GRAVITY
-    dy += self.vel_y
-
-    # Action decision-making based on distance to target and own health
-    if self.health > high_health:
-        #1.1
-          if distance > long_distance:
-              movements = [self.approach, self.retreat, self.idle_ai]
-              weights = [70, 10, 20]
-              actions = [self.idle_ai, self.jump_ai, self.attack_ai]
-              action_weights = [80, 20, 5]
-
-          #1.2  
-          elif medium_distance < distance <= long_distance:
-              movements = [self.approach, self.retreat, self.idle_ai]
-              weights = [50, 30, 20]
-              actions = [self.idle_ai, self.jump_ai, self.attack_ai]
-              action_weights = [50, 25, 25]
-
-          #1.3    
-          elif medium_distance >= distance > close_distance:
-              movements = [self.approach, self.retreat, self.idle_ai]
-              weights = [10, 30, 20]
-              actions = [self.idle_ai, self.jump_ai, self.attack_ai]
-              action_weights = [10, 25, 50]
-
-          #1.4
-          elif distance <= close_distance:
-              movements = [self.approach, self.retreat, self.idle_ai]
-              weights = [10, 30, 20]
-              actions = [self.idle_ai, self.jump_ai, self.attack_ai]
-              action_weights = [10, 25, 50]
-
-          # Update current movement
-          if self.current_movement_timer <= 0:
-              self.current_movement = random.choices(movements, weights, k=1)[0]
-              self.current_movement_timer = random.randint(20, 80)  # Set the timer for the movement
-          
-          # Update current action
-          if self.current_action_timer <= 0:
-              self.current_action = random.choices(actions, action_weights, k=1)[0]  # Select an action based on weights
-              self.current_action_timer = random.randint(20, 40)  # Set the timer for the action
-
-          dx = self.current_movement(target)
-          self.current_action(target)
-
-
-
-            
-
-    elif medium_health < self.health <= high_health:
-        pass
-    elif self.health <= medium_health:
-        pass
-    
-    print(dx)    # Update player position
-    self.rect.x += dx
-    self.rect.y += dy
-
-    
-    if self.attack_cooldown > 0:
-        self.attack_cooldown -= 1
-    if self.jump_cooldown > 0:
-        self.jump_cooldown -= 1
-
-    self.current_movement_timer -= 1
-    self.current_action_timer -= 1
   
   def move(self, screen_width, screen_height, target, round_over):
     # Initialize constants for speed, gravity, and character states
@@ -250,11 +266,11 @@ class Fighter(pygame.sprite.Sprite):
     if self.alive and not round_over:
       
         if self.state == "Combat":
-            self.combat_behaviour(target)
+            self.ai_behaviour.combat_behaviour(target)
         elif self.state == "Defense":
-            self.defend(target)
+            self.ai_behaviour.defend(target)
         elif self.state == "Retreat":
-            self.retreat(target)
+            self.ai_behaviour.retreat(target)
         else: # AI starts in Combat mode
             self.state = "Combat"
   
@@ -412,3 +428,6 @@ class Fighter(pygame.sprite.Sprite):
   def draw(self, surface):
     img = pygame.transform.flip(self.image, self.flip, False)
     surface.blit(img, (self.rect.x  - (self.offset[0] * self.image_scale), self.rect.y - (self.offset[1] * self.image_scale)))
+
+
+# ... (the imports and any other initial code)
